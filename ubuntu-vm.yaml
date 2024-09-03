@@ -1,0 +1,65 @@
+apiVersion: vmoperator.vmware.com/v1alpha1
+kind: VirtualMachine
+metadata:
+  name: ubuntu-alpr1
+  namespace: default
+  annotations:
+    vmoperator.vmware.com/image-supported-check: disable
+spec:
+  className: my-vm-class-1
+  imageName: cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.ova
+  powerState: poweredOn
+  networkInterfaces:
+  - networkName: "VM Network"
+    ethernetCardType: "vmxnet3"
+  vmMetadata:
+    configMapName: user-data-ubuntu
+    transport: CloudInit
+
+---
+apiVersion: vmoperator.vmware.com/v1alpha1
+kind: VirtualMachineClass
+metadata:
+  name: my-vm-class-1
+spec:
+  configSpec:
+    _typeName: VirtualMachineConfigSpec
+    cpuAllocation:
+      _typeName: ResourceAllocationInfo
+      limit: 2200
+      reservation: 200
+    memoryAllocation:
+      _typeName: ResourceAllocationInfo
+      limit: 2048
+      reservation: 1024
+  hardware:
+    cpus: 1
+    memory: 2Gi
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: user-data-ubuntu
+  namespace: default
+data:
+  user-data: |
+    #cloud-config
+    ssh_pwauth: true
+    users:
+      - name: ubuntu
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        lock_passwd: false
+        passwd: $6$rounds=4096$YyQI78VQLUOFPTia$lzwR76WHrrSOfr4xkLad9TzjILs55XoFDrjQAikyqp/R4ETQNTQPV0POz21aIibowkCNIm/DGjP/dWtc9dm0v/
+        shell: /bin/bash
+    runcmd:
+      - sudo rm -f /etc/netplan/*.yaml
+      - |
+        cat <<EOF > /etc/netplan/50-cloud-init.yaml
+        network:
+          ethernets:
+            eth0:
+              dhcp4: true
+          version: 2
+        EOF
+      - sudo netplan apply
